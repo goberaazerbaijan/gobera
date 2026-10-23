@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gobera - Admin Panel</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',sans-serif; }
+  body { background:#f0f2f5; color:#333; }
+  .login-box, .dashboard { max-width:900px; margin:40px auto; padding:25px; background:#fff; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,.08); }
+  .login-box { max-width:400px; text-align:center; }
+  h1 { margin-bottom:20px; color:#007bff; font-size:24px; }
+  h2 { margin:25px 0 15px; color:#333; border-bottom:2px solid #007bff; padding-bottom:8px; font-size:20px; }
+  input, textarea { width:100%; padding:10px; margin-bottom:12px; border:1px solid #ddd; border-radius:6px; font-size:14px; box-sizing:border-box; }
+  button { background:#007bff; color:#fff; border:none; padding:10px 20px; border-radius:6px; cursor:pointer; font-weight:500; font-size:14px; }
+  button:hover { opacity:0.9; }
+  button.danger { background:#dc3545; }
+  button.success { background:#28a745; }
+  button.warning { background:#ffc107; color:#000; }
+  .back-link { display:inline-block; margin-bottom:15px; color:#007bff; text-decoration:none; font-size:14px; }
+  .product-item, .order-item { background:#f9f9f9; padding:12px; border-radius:8px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border:1px solid #eee; }
+  .product-item img { width:60px; height:60px; object-fit:cover; border-radius:6px; }
+  .product-info { flex:1; min-width:150px; }
+  .actions { display:flex; gap:5px; flex-wrap:wrap; }
+  .order-item { flex-direction:column; align-items:flex-start; }
+  .order-meta { font-size:13px; color:#666; margin:5px 0; }
+  .status { padding:4px 10px; border-radius:12px; font-size:12px; font-weight:bold; }
+  .status-Gözləyir { background:#fff3cd; color:#856404; }
+  .status-Təsdiqləndi { background:#d4edda; color:#155724; }
+  .status-İmtina { background:#f8d7da; color:#721c24; }
+  .hidden { display:none !important; }
+  .url-hint { font-size:12px; color:#666; margin-top:-8px; margin-bottom:12px; }
+  .url-hint a { color:#007bff; text-decoration:none; }
+</style>
+</head>
+<body>
+
+<div class="login-box" id="loginBox">
+  <h1>🔐 Admin Giriş</h1>
+  <p style="margin-bottom:15px; color:#666; font-size:14px;">İdarəetmə panelinə daxil olun</p>
+  <input type="email" id="adminEmail" placeholder="Admin Email" onkeypress="if(event.key==='Enter') document.getElementById('adminPassword').focus()">
+  <input type="password" id="adminPassword" placeholder="Parol" onkeypress="if(event.key==='Enter') adminLogin()">
+  <button onclick="adminLogin()" style="width:100%;">Daxil ol</button>
+  <a href="index.html" class="back-link" style="margin-top:15px; display:block;">← Mağazaya qayıt</a>
+</div>
+
+<div class="dashboard hidden" id="dashboard">
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+    <h1>🛠️ Gobera Admin</h1>
+    <div>
+      <a href="index.html" class="back-link">← Mağaza</a>
+      <button class="danger" onclick="adminLogout()" style="margin-left:10px;">Çıxış</button>
+    </div>
+  </div>
+
+  <h2>Yeni Məhsul Əlavə Et / Düzəliş</h2>
+  <input type="text" id="productName" placeholder="Məhsulun adı *">
+  <input type="number" id="productPrice" placeholder="Qiymət (₼) *" step="0.01">
+  <textarea id="productDesc" placeholder="Təsvir" rows="2"></textarea>
+  
+  <input type="text" id="productImage" placeholder="Şəkilin birbaşa linkini (URL) buraya yapışdırın *" style="margin-bottom: 5px;">
+  <p class="url-hint">💡 Şəkli pulsuz yükləmək üçün: <a href="https://imgbb.com" target="_blank">imgbb.com</a> saytına girin, şəkli yükləyin və "Direct link" kopyalayıb bura yapışdırın.</p>
+  
+  <button id="submitBtn" onclick="saveProduct()">Məhsulu Əlavə Et</button>
+  <button class="warning hidden" id="cancelBtn" onclick="cancelEdit()">Düzəlişi Ləğv Et</button>
+
+  <h2>Mövcud Məhsullar (<span id="productCount">0</span>)</h2>
+  <div id="productsList"></div>
+
+  <h2>Sifarişlər (<span id="orderCount">0</span>)</h2>
+  <div id="ordersList"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAlAW0Wht8DIdi_cAwGvy8CL3afTetr89Q",
+  authDomain: "gobera-azerbaijan.firebaseapp.com",
+  projectId: "gobera-azerbaijan",
+  storageBucket: "gobera-azerbaijan.firebasestorage.app",
+  messagingSenderId: "198873257309",
+  appId: "1:198873257309:web:af024dc77a57fcf94844b4",
+  measurementId: "G-46YZDHVEFS"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let products = [];
+let editingId = null;
+
+window.adminLogin = async function() {
+  const email = document.getElementById('adminEmail').value.trim();
+  const password = document.getElementById('adminPassword').value;
+  try { await signInWithEmailAndPassword(auth, email, password); } 
+  catch (e) { alert('Xəta: Email və ya parol yanlışdır!'); }
+};
+window.adminLogout = function() { signOut(auth); };
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    document.getElementById('loginBox').classList.add('hidden');
+    document.getElementById('dashboard').classList.remove('hidden');
+  } else {
+    document.getElementById('loginBox').classList.remove('hidden');
+    document.getElementById('dashboard').classList.add('hidden');
+  }
+});
+
+onSnapshot(collection(db, 'products'), (snap) => {
+  products = [];
+  snap.forEach(d => products.push({ id: d.id, ...d.data() }));
+  renderProducts();
+});
+
+function renderProducts() {
+  document.getElementById('productCount').innerText = products.length;
+  const list = document.getElementById('productsList');
+  if (products.length === 0) { list.innerHTML = '<p>Məhsul yoxdur.</p>'; return; }
+  list.innerHTML = products.map(p => `
+    <div class="product-item">
+      <img src="${p.image || 'https://via.placeholder.com/60'}">
+      <div class="product-info">
+        <strong>${p.name}</strong><br>
+        <small>${p.price} ₼ - ${p.description || ''}</small>
+      </div>
+      <div class="actions">
+        <button class="warning" onclick="editProduct('${p.id}')">✏️ Düzəliş</button>
+        <button class="danger" onclick="deleteProduct('${p.id}')">🗑️ Sil</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+window.saveProduct = async function() {
+  const name = document.getElementById('productName').value.trim();
+  const price = parseFloat(document.getElementById('productPrice').value);
+  const description = document.getElementById('productDesc').value.trim();
+  const image = document.getElementById('productImage').value.trim();
+  
+  if (!name || isNaN(price) || price <= 0) { alert('Ad və qiymət mütləqdir!'); return; }
+  
+  const data = { name, price, description, image, updatedAt: serverTimestamp() };
+  try {
+    if (editingId) {
+      await updateDoc(doc(db, 'products', editingId), data);
+      alert('Məhsul yeniləndi!');
+    } else {
+      data.createdAt = serverTimestamp();
+      await addDoc(collection(db, 'products'), data);
+      alert('Yeni məhsul əlavə edildi!');
+    }
+    cancelEdit();
+  } catch (e) { alert('Xəta: ' + e.message); }
+};
+
+window.editProduct = function(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  editingId = id;
+  document.getElementById('productName').value = p.name;
+  document.getElementById('productPrice').value = p.price;
+  document.getElementById('productDesc').value = p.description || '';
+  document.getElementById('productImage').value = p.image || '';
+  
+  document.getElementById('submitBtn').innerText = 'Məhsulu Yenilə';
+  document.getElementById('submitBtn').classList.add('success');
+  document.getElementById('cancelBtn').classList.remove('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+window.cancelEdit = function() {
+  editingId = null;
+  document.getElementById('productName').value = '';
+  document.getElementById('productPrice').value = '';
+  document.getElementById('productDesc').value = '';
+  document.getElementById('productImage').value = '';
+  document.getElementById('submitBtn').innerText = 'Məhsulu Əlavə Et';
+  document.getElementById('submitBtn').classList.remove('success');
+  document.getElementById('cancelBtn').classList.add('hidden');
+};
+
+window.deleteProduct = async function(id) {
+  if (!confirm('Bu məhsulu silmək istədiyinizə əminsiniz?')) return;
+  try { await deleteDoc(doc(db, 'products', id)); } 
+  catch (e) { alert('Xəta: ' + e.message); }
+};
+
+onSnapshot(collection(db, 'orders'), (snap) => {
+  const orders = [];
+  snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
+  orders.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+  renderOrders(orders);
+});
+
+function renderOrders(orders) {
+  document.getElementById('orderCount').innerText = orders.length;
+  const list = document.getElementById('ordersList');
+  if (orders.length === 0) { list.innerHTML = '<p>Sifariş yoxdur.</p>'; return; }
+  list.innerHTML = orders.map(o => `
+    <div class="order-item">
+      <div style="width:100%; display:flex; justify-content:space-between; flex-wrap:wrap;">
+        <strong>📦 Sifariş #${o.id.slice(-6)}</strong>
+        <span class="status status-${o.status}">${o.status}</span>
+      </div>
+      <div class="order-meta">👤 ${o.userEmail} | 💳 RRN: <strong>${o.rrn}</strong> | 💰 ${o.total.toFixed(2)} ₼</div>
+      <div style="font-size:13px; margin:5px 0;">${o.items.map(i => `• ${i.name} (${i.qty}x)`).join('<br>')}</div>
+      <div class="actions" style="margin-top:8px;">
+        ${o.status === 'Gözləyir' ? `
+          <button class="success" onclick="updateOrderStatus('${o.id}','Təsdiqləndi')">✅ Təsdiqlə</button>
+          <button class="danger" onclick="updateOrderStatus('${o.id}','İmtina')">❌ İmtina</button>
+        ` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+window.updateOrderStatus = async function(id, status) {
+  try {
+    await updateDoc(doc(db, 'orders', id), { status, updatedAt: serverTimestamp() });
+  } catch (e) { alert('Xəta: ' + e.message); }
+};
+</script>
+</body>
+</html>

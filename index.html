@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gobera - Tədris Avadanlıqları</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',sans-serif; }
+  body { background:#f5f7fa; color:#333; }
+  header { background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.08); position:sticky; top:0; z-index:100; }
+  .nav { max-width:1200px; margin:auto; display:flex; justify-content:space-between; align-items:center; padding:15px 20px; }
+  .logo { font-size:26px; font-weight:bold; color:#007bff; text-decoration:none; }
+  .nav-links { display:flex; gap:20px; align-items:center; }
+  .nav-links a { text-decoration:none; color:#333; font-weight:500; }
+  .nav-links a:hover { color:#007bff; }
+  .cart-btn, .user-btn { background:#007bff; color:#fff; border:none; padding:8px 16px; border-radius:20px; cursor:pointer; font-weight:500; }
+  .user-btn { background:#28a745; text-decoration: none; }
+
+  .hero { background:linear-gradient(135deg,#007bff,#00c6ff); color:#fff; padding:80px 20px; text-align:center; }
+  .hero h1 { font-size:42px; margin-bottom:15px; }
+  .hero p { font-size:18px; margin-bottom:25px; }
+  .hero button { background:#fff; color:#007bff; border:none; padding:12px 30px; border-radius:25px; font-size:16px; font-weight:bold; cursor:pointer; }
+
+  .catalog { max-width:1200px; margin:40px auto; padding:0 20px; }
+  .catalog h2 { text-align:center; margin-bottom:30px; font-size:32px; }
+  .products { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:20px; }
+  .product { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,.06); transition:transform .2s; }
+  .product:hover { transform:translateY(-5px); }
+  .product img { width:100%; height:200px; object-fit:cover; background:#eee; }
+  .product-info { padding:15px; }
+  .product-info h3 { font-size:18px; margin-bottom:8px; }
+  .product-info p { color:#666; font-size:14px; margin-bottom:10px; min-height:40px; }
+  .product-info .price { font-size:20px; font-weight:bold; color:#007bff; margin-bottom:10px; }
+  .product-info button { width:100%; background:#28a745; color:#fff; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:500; }
+
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:1000; justify-content:center; align-items:center; padding:20px; }
+  .modal-overlay.active { display:flex; }
+  .modal { background:#fff; border-radius:12px; padding:25px; max-width:500px; width:100%; max-height:90vh; overflow-y:auto; position:relative; }
+  .modal h2 { margin-bottom:20px; }
+  .close-btn { position:absolute; top:10px; right:15px; background:none; border:none; font-size:24px; cursor:pointer; }
+  .modal input { width:100%; padding:10px; margin-bottom:12px; border:1px solid #ddd; border-radius:6px; font-size:14px; }
+  .modal button.primary { background:#007bff; color:#fff; border:none; padding:12px; border-radius:6px; width:100%; cursor:pointer; font-weight:500; margin-top:5px; }
+  .modal .switch-link { text-align:center; margin-top:15px; color:#007bff; cursor:pointer; font-size:14px; }
+  .birbank-btn { display:block; background:#007bff; color:#fff; text-align:center; padding:15px; border-radius:8px; text-decoration:none; margin-bottom:15px; font-weight:bold; font-size:16px; }
+  .birbank-btn:hover { background:#0056b3; }
+
+  .cart-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #eee; }
+  .cart-item img { width:50px; height:50px; object-fit:cover; border-radius:6px; margin-right:10px; }
+  .cart-total { font-size:20px; font-weight:bold; text-align:right; margin:15px 0; }
+  .remove-btn { background:#dc3545; color:#fff; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:12px; }
+
+  footer { background:#222; color:#fff; text-align:center; padding:25px; margin-top:50px; }
+  footer a { color:#00c6ff; text-decoration:none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="nav">
+    <a href="index.html" class="logo">GOBERA-AZERBAIJAN</a>
+    <div class="nav-links">
+      <a href="#catalog">Kataloq</a>
+      <a href="cabinet.html" class="user-btn"> Kabinet</a>
+      <button class="cart-btn" onclick="openCart()">🛒 Səbət (<span id="cartCount">0</span>)</button>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <h1>Öyrənməyə ilham verən alətlər.</h1>
+  <p>Tədris avadanlıqlarında sadəlik və keyfiyyət. Fokusunuzu yalnız biliyə yönəldin.</p>
+  <button onclick="document.getElementById('catalog').scrollIntoView({behavior:'smooth'})">Kataloqa Bax</button>
+</section>
+
+<section class="catalog" id="catalog">
+  <h2>Seçilmiş Məhsullar</h2>
+  <div class="products" id="productsGrid"><p style="text-align:center; grid-column:1/-1;">Yüklənir...</p></div>
+</section>
+
+<!-- Auth Modal -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal('authModal')">&times;</button>
+    <h2 id="authTitle">Giriş Et</h2>
+    <input type="email" id="authEmail" placeholder="Email">
+    <input type="password" id="authPassword" placeholder="Parol">
+    <button class="primary" id="authSubmitBtn" onclick="submitAuth()">Daxil ol</button>
+    <div class="switch-link" id="authSwitch" onclick="toggleAuthMode()">Hesabınız yoxdur? Qeydiyyatdan keçin</div>
+  </div>
+</div>
+
+<!-- Cart Modal -->
+<div class="modal-overlay" id="cartModal">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal('cartModal')">&times;</button>
+    <h2>Səbətiniz</h2>
+    <div id="cartItems"></div>
+    <div class="cart-total">Cəmi: <span id="cartTotal">0</span> ₼</div>
+    <button class="primary" onclick="checkout()">Sifarişi Rəsmiləşdir</button>
+  </div>
+</div>
+
+<!-- Payment Modal (BİRBANK LINKİ BURADADIR) -->
+<div class="modal-overlay" id="paymentModal">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal('paymentModal')">&times;</button>
+    <h2>Ödəniş</h2>
+    <p style="margin-bottom:15px; color:#666;">Sifarişi təsdiqləmək üçün əvvəlcə ödənişi edin:</p>
+    
+    <!-- SİZİN BİRBANK LİNKİNİZ -->
+    <a href="https://cb.birbank.business/pay/2dc80684106b494783470a13287267c3" target="_blank" class="birbank-btn"> Birbank ilə Ödəniş Et</a>
+    
+    <p style="margin-bottom:10px; font-size:14px; color:#666;">Ödəniş etdikdən sonra bankdan gələn RRN kodunu daxil edin:</p>
+    <input type="text" id="rrnInput" placeholder="RRN kodu (məs: 123456789)">
+    <button class="primary" onclick="submitOrder()">Sifarişi Təsdiqlə</button>
+  </div>
+</div>
+
+<footer>
+  <p>© 2026 GOBERA-AZERBAIJAN Bütün hüquqlar qorunur.</p>
+  <p style="margin-top:8px; font-size:13px;"><a href="admin.html">Admin Panel</a></p>
+</footer>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, collection, onSnapshot, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAlAW0Wht8DIdi_cAwGvy8CL3afTetr89Q",
+  authDomain: "gobera-azerbaijan.firebaseapp.com",
+  projectId: "gobera-azerbaijan",
+  storageBucket: "gobera-azerbaijan.firebasestorage.app",
+  messagingSenderId: "198873257309",
+  appId: "1:198873257309:web:af024dc77a57fcf94844b4",
+  measurementId: "G-46YZDHVEFS"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let products = [];
+let cart = JSON.parse(localStorage.getItem('gobera_cart') || '[]');
+let currentUser = null;
+let isRegisterMode = false;
+
+onSnapshot(collection(db, 'products'), (snap) => {
+  products = [];
+  snap.forEach(doc => products.push({ id: doc.id, ...doc.data() }));
+  renderProducts();
+});
+
+function renderProducts() {
+  const grid = document.getElementById('productsGrid');
+  if (products.length === 0) { grid.innerHTML = '<p style="text-align:center; grid-column:1/-1;">Hal-hazırda məhsul yoxdur.</p>'; return; }
+  grid.innerHTML = products.map(p => `
+    <div class="product">
+      <img src="${p.image || 'https://via.placeholder.com/300x200?text=Məhsul'}" alt="${p.name}">
+      <div class="product-info">
+        <h3>${p.name}</h3>
+        <p>${p.description || ''}</p>
+        <div class="price">${p.price} </div>
+        <button onclick="addToCart('${p.id}')">Səbətə Əlavə Et</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+window.addToCart = function(id) {
+  const product = products.find(p => p.id === id);
+  if (!product) return;
+  const existing = cart.find(c => c.id === id);
+  if (existing) existing.qty++;
+  else cart.push({ ...product, qty: 1 });
+  saveCart();
+  alert('Məhsul səbətə əlavə edildi!');
+};
+
+function saveCart() {
+  localStorage.setItem('gobera_cart', JSON.stringify(cart));
+  updateCartUI();
+}
+
+function updateCartUI() {
+  document.getElementById('cartCount').innerText = cart.reduce((s, i) => s + i.qty, 0);
+}
+
+window.openCart = function() {
+  renderCart();
+  document.getElementById('cartModal').classList.add('active');
+};
+
+function renderCart() {
+  const container = document.getElementById('cartItems');
+  if (cart.length === 0) {
+    container.innerHTML = '<p style="text-align:center; padding:20px;">Səbət boşdur.</p>';
+    document.getElementById('cartTotal').innerText = '0';
+    return;
+  }
+  container.innerHTML = cart.map((item, i) => `
+    <div class="cart-item">
+      <img src="${item.image || 'https://via.placeholder.com/50'}">
+      <div style="flex:1;"><strong>${item.name}</strong><br><small>${item.qty} x ${item.price} ₼</small></div>
+      <button class="remove-btn" onclick="removeFromCart(${i})">Sil</button>
+    </div>
+  `).join('');
+  document.getElementById('cartTotal').innerText = cart.reduce((s, i) => s + i.qty * i.price, 0).toFixed(2);
+}
+
+window.removeFromCart = function(i) {
+  cart.splice(i, 1);
+  saveCart();
+  renderCart();
+};
+
+window.checkout = function() {
+  if (cart.length === 0) { alert('Səbət boşdur!'); return; }
+  closeModal('cartModal');
+  if (!currentUser) {
+    document.getElementById('authModal').classList.add('active');
+  } else {
+    document.getElementById('paymentModal').classList.add('active');
+  }
+};
+
+window.toggleAuthMode = function() {
+  isRegisterMode = !isRegisterMode;
+  document.getElementById('authTitle').innerText = isRegisterMode ? 'Qeydiyyat' : 'Giriş Et';
+  document.getElementById('authSubmitBtn').innerText = isRegisterMode ? 'Qeydiyyatdan Keç' : 'Daxil ol';
+  document.getElementById('authSwitch').innerText = isRegisterMode ? 'Hesabınız var? Giriş edin' : 'Hesabınız yoxdur? Qeydiyyatdan keçin';
+};
+
+window.submitAuth = async function() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if (!email || !password) { alert('Email və parol daxil edin!'); return; }
+  try {
+    if (isRegisterMode) await createUserWithEmailAndPassword(auth, email, password);
+    else await signInWithEmailAndPassword(auth, email, password);
+    closeModal('authModal');
+    document.getElementById('paymentModal').classList.add('active');
+  } catch (e) { alert('Xəta: ' + e.message); }
+};
+
+window.submitOrder = async function() {
+  const rrn = document.getElementById('rrnInput').value.trim();
+  if (!rrn || rrn.length < 6) { alert('Düzgün RRN kodu daxil edin!'); return; }
+  
+  const total = cart.reduce((s, i) => s + i.qty * i.price, 0);
+  const order = {
+    userId: currentUser.uid,
+    userEmail: currentUser.email,
+    items: cart,
+    total: total,
+    rrn: rrn,
+    status: 'Gözləyir',
+    createdAt: serverTimestamp()
+  };
+  
+  try {
+    await addDoc(collection(db, 'orders'), order);
+    cart = [];
+    saveCart();
+    closeModal('paymentModal');
+    alert('✅ Sifarişiniz qəbul edildi! Admin təsdiqini gözləyirik. Sifarişlərinizi "Şəxsi Kabinet"dən izləyə bilərsiniz.');
+    document.getElementById('rrnInput').value = '';
+  } catch (e) { alert('Xəta: ' + e.message); }
+};
+
+onAuthStateChanged(auth, (user) => { currentUser = user; });
+window.closeModal = function(id) { document.getElementById(id).classList.remove('active'); };
+updateCartUI();
+</script>
+</body>
+</html>
